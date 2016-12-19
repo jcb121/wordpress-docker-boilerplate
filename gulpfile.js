@@ -13,9 +13,9 @@ gulp.task('default', ['themes', 'plugins', 'watch'])
 
 gulp.task('clean', ['themes:clean', 'plugins:clean'])
 
-gulp.task('plugins', ['plugins:sass', 'plugins:js'])
+gulp.task('plugins', ['plugins:sass', 'plugins:js', 'plugins:php'])
 
-gulp.task('themes', ['themes:sass', 'themes:js'])
+gulp.task('themes', ['themes:sass', 'themes:js', 'themes:php'])
 
 /*
  * Clean
@@ -41,7 +41,7 @@ gulp.task('plugins:clean', function(){
  * PHP / html
  */
 gulp.task('themes:php', function(){
-  return gulp.src(['./themes_src/**/*.scss', './themes_src/**/*.html'])
+  return gulp.src(['./themes_src/**/*.php', './themes_src/**/*.html'])
     .pipe(gulp.dest('./dist/themes'));
 })
 
