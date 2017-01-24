@@ -9,67 +9,63 @@ var uglify = require('gulp-uglify');
 var foreach = require('gulp-foreach');
 var del = require('del');
 
-gulp.task('default', ['themes', 'plugins', 'watch'])
+var types = ['plugins', 'themes'];
+var tasks = [
+  //{ name: 'clean',  function: clean },
+  { name: 'php',    function: move_static, file_types: ['php'] },
+  { name: 'js',     function: move_js,     file_types: ['js'] },
+  { name: 'sass',   function: sass,        file_types: ['scss'] },
+  { name: 'assets', function: move_static, file_types: ['svg', 'png', 'jpg', 'jpeg' ]}
+]
 
+gulp.task('default', types.concat(['watch']))
 gulp.task('clean', ['themes:clean', 'plugins:clean'])
 
-gulp.task('plugins', ['plugins:sass', 'plugins:js', 'plugins:php'])
-
-gulp.task('themes', ['themes:sass', 'themes:js', 'themes:php'])
-
-/*
- * Clean
- */
-gulp.task('themes:clean', function(){
-  return gulp.src('./themes_src/*')
-    .pipe(foreach(function(stream, file){
-      var path = file.history[0].split('/').reverse()[0]
-      del('./dist/themes/' + path);
-      return stream;
-    }))
-});
-
-gulp.task('plugins:clean', function(){
-  return gulp.src('./plugins_src/*')
-    .pipe(foreach(function(stream, file){
-      var path = file.history[0].split('/').reverse()[0]
-      del('./dist/plugins/' + path);
-      return stream;
-    }))
-});
-/*
- * PHP / html
- */
-gulp.task('themes:php', function(){
-  return gulp.src(['./themes_src/**/*.php', './themes_src/**/*.html'])
-    .pipe(gulp.dest('./dist/themes'));
+types.forEach(function(type){
+  gulp.task(type, tasks.map(function(task){ return type + ':' + task.name }));
+  tasks.forEach(function(task){
+    gulp.task(type + ':' + task.name, task.function.bind(this, type, task.file_types));
+  })
 })
 
-gulp.task('plugins:php', function(){
-  return gulp.src(['./plugins_src/**/*.php', './plugins_src/**/*.html'])
-    .pipe(gulp.dest('./dist/plugins'));
-})
-
-/*
- * JS
- */
-gulp.task('themes:js', function () {
-  return gulp.src('./themes_src/*')
-    .pipe(foreach(function(stream, file){
-      var path = file.history[0].split('/').reverse()[0]
-      gulp.src(file.history[0] + '/**/*.js')
-        .pipe(sourcemaps.init())
-        .pipe(concat('scripts.js'))
-        .pipe(sourcemaps.write())
-        .pipe(gulp.dest('./dist/themes/' + path))
-        .pipe(rename('scripts.min.js'))
-        .pipe(uglify())
-        .pipe(gulp.dest('./dist/themes/' + path));
-      return stream;
-    }));
+gulp.task('watch', function(){
+  types.forEach(function(plugin_type){
+    tasks.forEach(function(task){
+      var files  = task.file_types.map(function(type){ return './' + plugin_type + '_src/**/*.' + type })
+      gulp.watch(files,  ['themes:'  + task.name]);
+    });
+  });
 });
 
-gulp.task('plugins:js', function () {
+function clean(type){
+  return gulp.src('./' + type + '_src/*')
+  .pipe(foreach(function(stream, file){
+    var path = file.history[0].split('/').reverse()[0]
+    return del('./dist/' + type + '/' + path);
+    //return stream;
+  }))
+}
+
+function move_static(type, file_type){
+
+  if(typeof file_type === 'string'){
+    file_type = [file_type];
+  }
+
+  file_type = file_type.map(function(){
+    return './' + type + '_src/**/*.' + file_type;
+  });
+
+  return gulp.src(file_type)
+  .pipe(gulp.dest('./dist/' + type));
+}
+
+function move_js(type){
+  return gulp.src('./' + type + '_src/**/*.js')
+  .pipe(gulp.dest('./dist/' + type));
+}
+
+function concat_js(type){
   return gulp.src('./plugins_src/*')
     .pipe(foreach(function(stream, file){
       var path = file.history[0].split('/').reverse()[0]
@@ -83,43 +79,15 @@ gulp.task('plugins:js', function () {
         .pipe(gulp.dest('./dist/plugins/' + path));
       return stream;
     }));
-});
+}
 
-/*
- * CSS
- */
-gulp.task('themes:sass', function () {
-  return gulp.src('./themes_src/**/*.scss')
+function sass(type) {
+  return gulp.src('./' + type + '_src/**/*.scss')
     .pipe(sourcemaps.init())
     .pipe(sass().on('error', sass.logError))
     .pipe(sourcemaps.write())
-    .pipe(gulp.dest('./dist/themes'));
-});
-
-gulp.task('plugins:sass', function () {
-  return gulp.src('./plugins_src/**/*.scss')
-    .pipe(sourcemaps.init())
-    .pipe(sass().on('error', sass.logError))
-    .pipe(sourcemaps.write())
-    .pipe(gulp.dest('./dist/plugins'));
-});
-
-
-
-gulp.task('watch', function () {
-  gulp.watch('./themes_src/**/*.scss', ['themes:sass']);
-  gulp.watch('./plugins_src/**/*.scss', ['plguins:sass']);
-
-  gulp.watch('./themes_src/**/*.php', ['themes:php']);
-  gulp.watch('./plugins_src/**/*.php', ['plugins:php']);
-
-  gulp.watch('./themes_src/**/*.html', ['themes:php']);
-  gulp.watch('./plugins_src/**/*.html', ['plugins:php']);
-
-  gulp.watch('./themes_src/**/*.js', ['themes:js']);
-  gulp.watch('./plugins_src/**/*.js', ['plugins:js']);
-});
-
+    .pipe(gulp.dest('./dist/' + type));
+}
 
 gulp.task('compose', function(){
   exec('docker-compose up', function (err, stdout, stderr) {
