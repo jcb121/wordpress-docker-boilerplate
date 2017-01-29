@@ -8,6 +8,7 @@ var rename = require('gulp-rename');
 var uglify = require('gulp-uglify');
 var foreach = require('gulp-foreach');
 var del = require('del');
+var cleanCSS = require('gulp-clean-css');
 
 var types = ['plugins', 'themes'];
 var tasks = [
@@ -41,7 +42,7 @@ function clean(type){
   return gulp.src('./' + type + '_src/*')
   .pipe(foreach(function(stream, file){
     var path = file.history[0].split('/').reverse()[0]
-    return del('./dist/' + type + '/' + path);
+    return del('./wordpress/wp-content/' + type + '/' + path);
     //return stream;
   }))
 }
@@ -57,26 +58,31 @@ function move_static(type, file_type){
   });
 
   return gulp.src(file_type)
-  .pipe(gulp.dest('./dist/' + type));
+  .pipe(gulp.dest('./wordpress/wp-content/' + type));
 }
 
 function move_js(type){
   return gulp.src('./' + type + '_src/**/*.js')
-  .pipe(gulp.dest('./dist/' + type));
+  .pipe(gulp.dest('./wordpress/wp-content/' + type))
+  .pipe(uglify())
+  .pipe(rename(function(path){
+    path.basename += '.min';
+  }))
+  .pipe(gulp.dest('./wordpress/wp-content/' + type))
 }
 
 function concat_js(type){
-  return gulp.src('./plugins_src/*')
+  return gulp.src('./' + type + '_src/*')
     .pipe(foreach(function(stream, file){
       var path = file.history[0].split('/').reverse()[0]
       gulp.src(file.history[0] + '/**/*.js')
         .pipe(sourcemaps.init())
         .pipe(concat('scripts.js'))
         .pipe(sourcemaps.write())
-        .pipe(gulp.dest('./dist/plugins/' + path))
+        .pipe(gulp.dest('./wordpress/wp-content/' + type + '/' + path))
         .pipe(rename('scripts.min.js'))
         .pipe(uglify())
-        .pipe(gulp.dest('./dist/plugins/' + path));
+        .pipe(gulp.dest('./wordpress/wp-content/' + type + '/' + path));
       return stream;
     }));
 }
@@ -86,7 +92,12 @@ function sass(type) {
     .pipe(sourcemaps.init())
     .pipe(sass().on('error', sass.logError))
     .pipe(sourcemaps.write())
-    .pipe(gulp.dest('./dist/' + type));
+    .pipe(gulp.dest('./wordpress/wp-content/' + type))
+    .pipe(cleanCSS({compatibility: 'ie8'}))
+    .pipe(rename(function(path){
+      path.basename += '.min';
+    }))
+    .pipe(gulp.dest('./wordpress/wp-content/' + type));
 }
 
 gulp.task('compose', function(){
